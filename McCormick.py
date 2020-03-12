@@ -41,11 +41,11 @@ import time
 
 # Van Der Pol Oscillator
 # 
-# x_{t+1} = -y_t \Delta_t + x_t           
+# x_{t+1} = y_t \Delta_t + x_t           
 # y_{t+1} = -[u_t(1-x_t^2)y_t - x_t] \Delta_t + y_t
 
-T = 30
-del_t = -0.1
+T = 5
+del_t = 0.1
 
 u_min = -1.0
 u_max = 1.0
@@ -55,6 +55,18 @@ x_lw_b = -0.01 + 1
 y_up_b = 0.01
 y_lw_b = -0.01
 
+def forwardEulerVP(x0,y0,T,plot=True):
+    
+    xs, ys = [x0], [y0]
+    x,y = x0, y0
+    for t in range(T):
+        x, y = y*del_t + x, (-0.5*(u_min+u_max)*(1-x**2)*y - x)*del_t + y
+        xs.append(x)
+        ys.append(y)
+        
+    if plot:
+        plt.plot(xs, ys, "*")
+    return xs, ys
 
 def McCormick(w,x,y,x_bounds,y_bounds):
     xL,xU = x_bounds
@@ -159,5 +171,6 @@ xL,xU = bounds(variables[-1]["x"],constraints)
 yL,yU = bounds(variables[-1]["y"],constraints)
 
 plt.plot([xL,xL,xU,xU,xL],[yL,yU,yU,yL,yL],'r')
+forwardEulerVP(1,0,T,True)
 plt.pause(1000.0)
 
