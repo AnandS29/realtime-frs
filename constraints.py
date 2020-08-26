@@ -159,7 +159,7 @@ class LinearConstraints:
         constraint = constraint.add_const(1)
         return constraint
     
-    def sin(self,constant=False,taylor=None,adaptive=False):
+    def sin(self,constant=False,taylor=None,adaptive=False,debug=False):
         # taylor = d > 1 corresponds to n in \sum_{k=0}^n ... (ie the sigma notation for taylor series) = number of terms - 1
         
         constraint = None
@@ -172,21 +172,25 @@ class LinearConstraints:
             gradient_fn = lambda v: {"_self":np.cos(v["_self"])}
             
             if upper <= np.pi:
+                if debug: print("Concave")
                 return ConvexConstraints({"_self":self.copy()}, self.var_bounds, fn, gradient_fn, convex=False)
             elif lower >= np.pi:
+                if debug: print("Convex")
                 return ConvexConstraints({"_self":self.copy()}, self.var_bounds, fn, gradient_fn, convex=True)
             else:
-                lower_point, upper_point = 4.50, 1.78 # Use numerical solver to find safe solution?
-                var_bounds = self.var_bounds
+                if debug: print("Neither")
+#                 lower_point, upper_point = 4.50, 1.78 # Use numerical solver to find safe solution?
+#                 var_bounds = self.var_bounds
                 
-                # bound of the form ax + b
-                # sin(x_1) - x_1 cos(x_1)
-                b = lambda t: np.sin(t) - t*np.cos(t)
-                # cos(x_1)
-                a = lambda t: np.cos(t)
-                lower_bound = self.copy().mult_const(a(lower_point)).add_const(b(lower_point)).lower
-                upper_bound = self.copy().mult_const(a(upper_point)).add_const(b(upper_point)).upper
-                return LinearConstraints(lower_bound, upper_bound, var_bounds)
+#                 # bound of the form ax + b
+#                 # sin(x_1) - x_1 cos(x_1)
+#                 b = lambda t: np.sin(t) - t*np.cos(t)
+#                 # cos(x_1)
+#                 a = lambda t: np.cos(t)
+#                 lower_bound = self.copy().mult_const(a(lower_point)).add_const(b(lower_point)).lower
+#                 upper_bound = self.copy().mult_const(a(upper_point)).add_const(b(upper_point)).upper
+#                 return LinearConstraints(lower_bound, upper_bound, var_bounds)
+                constant = True;
                 
         if taylor is not None and not constant:
             d = taylor
@@ -443,7 +447,7 @@ def bounds(x,constraints,Npast=0):
 
     return (value_min,value_max)
 
-def sin_adaptive_cvx(w,x,x_bounds):
+def sin_adaptive_cvx(w,x,x_bounds,debug=False):
     xL,xU = x_bounds
     x_avg = 0.5*(xL+xU)
     c = []
@@ -456,23 +460,43 @@ def sin_adaptive_cvx(w,x,x_bounds):
         c.append(w <= np.sin(x_avg) + np.cos(x_avg)*(x - x_avg))
         c.append(w >= (x-xL)*m + np.sin(xL))
         
+        if debug:
+            coeffs_lower = {"_const":np.sin(xL)-m*xL, "x_sin":m}
+            coeffs_upper = {"_const":np.sin(x_avg)-np.cos(x_avg)*x_avg, "x_sin":np.cos(x_avg)}
+            print("sin(x) lower: ", coeffs_lower)
+            print("sin(x) upper: ", coeffs_upper)
+        
     elif xL >= np.pi:
         # Convex
         c.append(w >= np.sin(x_avg) + np.cos(x_avg)*(x - x_avg))
         c.append(w <= (x-xL)*m + np.sin(xL))
         
+        if debug:
+            coeffs_upper = {"_const":np.sin(xL)-m*xL, "x_sin":m}
+            coeffs_lower = {"_const":np.sin(x_avg)-np.cos(x_avg)*x_avg, "x_sin":np.cos(x_avg)}
+            print("sin(x) lower: ", coeffs_lower)
+            print("sin(x) upper: ", coeffs_upper)
+        
     else:
-        lower_point, upper_point = 4.50, 1.78 # Use numerical solver to find safe solution?
-        # sin(x_1) - x_1 cos(x_1)
-        b = lambda t: np.sin(t) - t*np.cos(t)
-        # cos(x_1)
-        a = lambda t: np.cos(t)
-        c.append(w >= a(lower_point)*x + b(lower_point))
-        c.append(w <= a(upper_point)*x + b(upper_point))
+#         lower_point, upper_point = 4.50, 1.78 # Use numerical solver to find safe solution?
+#         # sin(x_1) - x_1 cos(x_1)
+#         b = lambda t: np.sin(t) - t*np.cos(t)
+#         # cos(x_1)
+#         a = lambda t: np.cos(t)
+#         c.append(w >= a(lower_point)*x + b(lower_point))
+#         c.append(w <= a(upper_point)*x + b(upper_point))
+        c.append(w >= -1)
+        c.append(w <= 1)
+        
+#         if debug:
+#             coeffs_lower = {"_const":b(lower_point), "x_sin":a(lower_point)}
+#             coeffs_upper = {"_const":b(upper_point), "x_sin":a(upper_point)}
+#             print("sin(x) lower: ", coeffs_lower)
+#             print("sin(x) upper: ", coeffs_upper)
         
     return c
 
-def cos_adaptive_cvx(w,x,x_bounds):
+def cos_adaptive_cvx(w,x,x_bounds,debug=False):
     xL,xU = x_bounds
     x_avg = 0.5*(xL+xU)
     c = []
@@ -486,14 +510,32 @@ def cos_adaptive_cvx(w,x,x_bounds):
         c.append(w <= np.cos(x_avg) - np.sin(x_avg)*(x - x_avg))
         c.append(w >= (x-xL)*m + np.cos(xL))
         
+        if debug:
+            coeffs_lower = {"_const":np.cos(xL)-m*xL, "x_cos":m}
+            coeffs_upper = {"_const":np.cos(x_avg)+np.sin(x_avg)*x_avg, "x_cos":-1*np.sin(x_avg)}
+            print("cos(x) lower: ", coeffs_lower)
+            print("cos(x) upper: ", coeffs_upper)
+        
     elif (xL >= np.pi/2 and xU <= 1.5*np.pi):
         # Convex
         c.append(w >= np.cos(x_avg) - np.sin(x_avg)*(x - x_avg))
         c.append(w <= (x-xL)*m + np.cos(xL))
         
+        if debug:
+            coeffs_upper = {"_const":np.cos(xL)-m*xL, "x_cos":m}
+            coeffs_lower = {"_const":np.cos(x_avg)+np.sin(x_avg)*x_avg, "x_cos":-1*np.sin(x_avg)}
+            print("cos(x) lower: ", coeffs_lower)
+            print("cos(x) upper: ", coeffs_upper)
+        
     else:
         # Constant
         c.append(w >= -1)
         c.append(w <= 1)
+        
+        if debug:
+            coeffs_lower = {"_const":-1, "x_cos":0}
+            coeffs_upper = {"_const":1, "x_cos":0}
+            print("cos(x) lower: ", coeffs_lower)
+            print("cos(x) upper: ", coeffs_upper)
         
     return c

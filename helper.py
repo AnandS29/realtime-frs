@@ -234,11 +234,13 @@ def polytope_sample(A,b,i_point):
 
 # Outer Approximation
 
-def outer_approximation(n,A,b,offset=0):
+def outer_approximation(n,A,b,offset=0,start_idx=0):
     dirs = []
     for t in np.linspace(0,np.pi,n):
-        l = [np.cos(t),np.sin(t)]
-        l.extend([0 for _ in range(A.shape[1]-2)])
+#         l = [np.cos(t),np.sin(t)]
+        l = [0 for _ in range(A.shape[1])]
+        l[start_idx] = np.cos(t)
+        l[start_idx+1] = np.sin(t)
         dirs.append(np.array([l]).T)
     dirs_ret = []
     alphas = []
@@ -253,7 +255,7 @@ def outer_approximation(n,A,b,offset=0):
         dirs_ret.append(d)
         alphas.append(alpha_min)
         x_min_val = x_min.value
-        points.append([x_min_val[0,0],x_min_val[1,0]])
+        points.append([x_min_val[start_idx,0],x_min_val[start_idx+1,0]])
         
         x_max = cvxpy.Variable((A.shape[1],1))
         objective_max = cvxpy.Maximize(x_max.T@d)
@@ -264,11 +266,47 @@ def outer_approximation(n,A,b,offset=0):
         dirs_ret.append(d)
         alphas.append(alpha_max)
         x_max_val = x_max.value
-        points.append([x_max_val[0,0],x_max_val[1,0]])
+        points.append([x_max_val[start_idx,0],x_max_val[start_idx+1,0]])
     
     return dirs_ret, alphas, points
 
-def plot_hyperplanes(dirs,alphas,points,num_points):
+def outer_approximation_cvx(n,variables,constraints,offset=0):
+    dirs = []
+    for t in np.linspace(0,np.pi,n):
+        l = [np.cos(t),np.sin(t)]
+        dirs.append(np.array([l]).T)
+    dirs_ret = []
+    alphas = []
+    points = []
+    x_T = variables[-1]["x"]
+    y_T = variables[-1]["y"]
+    
+    for d in dirs:
+        objective_min = cvxpy.Minimize(d[0,0]*x_T + d[1,0]*y_T)
+        constraints_min = constraints
+        problem_min = cvxpy.Problem(objective_min,constraints_min)
+        alpha_min = problem_min.solve(solver=cvxpy.GUROBI)
+        
+        dirs_ret.append(d)
+        alphas.append(alpha_min)
+        x_min_val = x_T.value
+        y_min_val = y_T.value
+        points.append([x_min_val,y_min_val])
+        
+        objective_max = cvxpy.Maximize(d[0,0]*x_T + d[1,0]*y_T)
+        constraints_max = constraints
+        problem_max = cvxpy.Problem(objective_max,constraints_max)
+        alpha_max = problem_max.solve(solver=cvxpy.GUROBI)
+        
+        dirs_ret.append(d)
+        alphas.append(alpha_max)
+        x_max_val = x_T.value
+        y_max_val = y_T.value
+        points.append([x_max_val,y_max_val])
+    
+    return dirs_ret, alphas, points
+
+def plot_hyperplanes(dirs,alphas,points,num_points,start_idx=0):
     plt.figure()
     min_x, max_x = min([pt[0] for pt in points]), max([pt[0] for pt in points])
     min_y, max_y = min([pt[1] for pt in points]), max([pt[1] for pt in points])
@@ -278,13 +316,13 @@ def plot_hyperplanes(dirs,alphas,points,num_points):
     for i in range(len(dirs)):
         d = dirs[i]
         alpha = alphas[i]
-        if d[1] == 0:
-            c = alpha/d[0]
+        if d[start_idx+1] == 0:
+            c = alpha/d[start_idx]
             ys = list(y_range)
             xs = [c for _ in range(len(ys))]
         else:
             xs = list(x_range)
-            ln = lambda x: (-1*d[0]*x + alpha)/d[1]
+            ln = lambda x: (-1*d[start_idx]*x + alpha)/d[start_idx+1]
             ys = [ln(x) for x in xs]
         plt.plot(xs,ys)
     plt.xlim([min(x_range),max(x_range)])
@@ -295,7 +333,12 @@ def scatter_plot(points):
     for pt in points:
         plt.scatter(pt[0], pt[1])
 
-def plot_outer_approximation(n,A,b,num_points):
-    dirs, alphas, points = outer_approximation(n,A,b)
+def plot_outer_approximation(n,A,b,num_points,start_idx=0):
+    dirs, alphas, points = outer_approximation(n,A,b,start_idx=start_idx)
+    plot_hyperplanes(dirs, alphas, points, num_points, start_idx=start_idx)
+    scatter_plot(points)
+
+def plot_outer_approximation_cvx(n,variables,constraints,num_points):
+    dirs, alphas, points = outer_approximation_cvx(n,variables,constraints)
     plot_hyperplanes(dirs, alphas, points, num_points)
     scatter_plot(points)
