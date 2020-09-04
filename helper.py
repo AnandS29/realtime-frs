@@ -137,8 +137,9 @@ def compare_clouds(polytope, random):
     plt.ylabel("Y")
 #     plt.legend()
 
-def plot_boxes_2d(boxes):
+def plot_boxes_2d(boxes,name=""):
     plt.figure()
+    plt.title(name)
     for i in range(len(boxes)):
         box = boxes[i]
         xL, xU = box[0]
@@ -146,8 +147,9 @@ def plot_boxes_2d(boxes):
         plt.plot([xL,xL,xU,xU,xL],[yL,yU,yU,yL,yL],'k')
     plt.show()
     
-def plot_2d_boxes_traj(boxes, trajs):
+def plot_2d_boxes_traj(boxes, trajs, name=""):
     plt.figure()
+    plt.title(name)
     for i in range(len(boxes)):
         box = boxes[i]
         xL, xU = box[0]
