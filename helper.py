@@ -28,6 +28,7 @@ def get_final_points(ranges,forwardEuler,constants,n=10,t=-1):
 def verify_valid_boxes(boxes,ranges,forwardEuler,constants,n=10,compare=True, debug=False):
     valid = []
     trajs = random_trajs(ranges,forwardEuler=forwardEuler,constants=constants,n=n)
+#     print(len(trajs))
     ind = 0
     ind_stop = 0
     for traj in trajs:
@@ -46,6 +47,7 @@ def verify_valid_boxes(boxes,ranges,forwardEuler,constants,n=10,compare=True, de
     
     # Method of checking traj for where the "problem" is
     if debug:
+#         print("Number Valid:", sum(valid), all(valid), any(valid))
         t = trajs[ind_stop]
         for i in range(len(t)-1):
             s = t[i]
@@ -252,7 +254,7 @@ def outer_approximation(n,A,b,offset=0,start_idx=0):
         objective_min = cvxpy.Minimize(x_min.T@d)
         constraints_min = [A@x_min <= b]
         problem_min = cvxpy.Problem(objective_min,constraints_min)
-        alpha_min = problem_min.solve(solver=cvxpy.GUROBI)
+        alpha_min = problem_min.solve()
         
         dirs_ret.append(d)
         alphas.append(alpha_min)
@@ -263,7 +265,7 @@ def outer_approximation(n,A,b,offset=0,start_idx=0):
         objective_max = cvxpy.Maximize(x_max.T@d)
         constraints_max = [A@x_max <= b]
         problem_max = cvxpy.Problem(objective_max,constraints_max)
-        alpha_max = problem_max.solve(solver=cvxpy.GUROBI)
+        alpha_max = problem_max.solve()
         
         dirs_ret.append(d)
         alphas.append(alpha_max)
@@ -287,7 +289,7 @@ def outer_approximation_cvx(n,variables,constraints,offset=0):
         objective_min = cvxpy.Minimize(d[0,0]*x_T + d[1,0]*y_T)
         constraints_min = constraints
         problem_min = cvxpy.Problem(objective_min,constraints_min)
-        alpha_min = problem_min.solve(solver=cvxpy.GUROBI)
+        alpha_min = problem_min.solve()
         
         dirs_ret.append(d)
         alphas.append(alpha_min)
@@ -298,7 +300,7 @@ def outer_approximation_cvx(n,variables,constraints,offset=0):
         objective_max = cvxpy.Maximize(d[0,0]*x_T + d[1,0]*y_T)
         constraints_max = constraints
         problem_max = cvxpy.Problem(objective_max,constraints_max)
-        alpha_max = problem_max.solve(solver=cvxpy.GUROBI)
+        alpha_max = problem_max.solve()
         
         dirs_ret.append(d)
         alphas.append(alpha_max)

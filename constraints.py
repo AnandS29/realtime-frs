@@ -168,6 +168,8 @@ class LinearConstraints:
             box = self.eval_box()
             lower, upper = box.lower, box.upper
             
+            if debug: print("Bounds: ", lower, upper)
+            
             fn = lambda v: np.sin(v["_self"])
             gradient_fn = lambda v: {"_self":np.cos(v["_self"])}
             
@@ -191,6 +193,27 @@ class LinearConstraints:
 #                 upper_bound = self.copy().mult_const(a(upper_point)).add_const(b(upper_point)).upper
 #                 return LinearConstraints(lower_bound, upper_bound, var_bounds)
                 constant = True;
+            
+#             box = self.eval_box()
+#             xL,xU = box.lower, box.upper
+#             x_avg = 0.5*(xL+xU)
+
+#             m = (np.sin(xU) - np.sin(xL))/(xU - xL)
+
+#             if xU <= np.pi:
+#                 # Concave
+#                 ln_upper = self.mult_const(np.cos(x_avg)).add_const(np.sin(x_avg)-np.cos(x_avg)*x_avg).upper
+#                 ln_lower = self.mult_const(m).add_const(np.sin(xL) - xL*m).lower
+#                 return LinearConstraints(ln_lower, ln_upper, self.var_bounds)
+
+#             elif xL >= np.pi:
+#                 # Convex
+#                 ln_upper = self.mult_const(np.cos(x_avg)).add_const(np.sin(x_avg)-np.cos(x_avg)*x_avg).lower
+#                 ln_lower = self.mult_const(m).add_const(np.sin(xL) - xL*m).upper
+#                 return LinearConstraints(ln_lower, ln_upper, self.var_bounds)
+
+#             else:
+#                 constant = True
                 
         if taylor is not None and not constant:
             d = taylor
@@ -212,22 +235,28 @@ class LinearConstraints:
             constraint = LinearConstraints(Line(lower_coeff),Line(upper_coeff),self.var_bounds)
         return constraint
     
-    def cos(self,constant=False,taylor=None,adaptive=False):
+    def cos(self,constant=False,taylor=None,adaptive=False, debug=False):
         # taylor = d > 1 corresponds to n+1 in \sum_{k=0}^n ... (ie the sigma notation for taylor series) = number of terms - 1
         
         if adaptive:
             box = self.eval_box()
             lower, upper = box.lower, box.upper
             
+            if debug: print("Bounds: ", lower, upper)
+            
             fn = lambda v: np.cos(v["_self"])
             gradient_fn = lambda v: {"_self":-1*np.sin(v["_self"])}
             
             if (upper <= np.pi/2 or lower >= 1.5*np.pi):
+                if debug: print("Concave")
                 return ConvexConstraints({"_self":self.copy()}, self.var_bounds, fn, gradient_fn, convex=False)
             elif (lower >= np.pi/2 and upper <= 1.5*np.pi):
+                if debug: print("Convex")
                 return ConvexConstraints({"_self":self.copy()}, self.var_bounds, fn, gradient_fn, convex=True)
             else:
+                if debug: print("Neither")
                 constant = True
+
         if taylor is not None and not constant:
             d = taylor
             assert d > 1, "d must be greater than 1"
@@ -295,7 +324,7 @@ class ConvexConstraints(LinearConstraints):
         # Point around which to take gradient
         if point_grad is None:
             # Take gradient in the middle of bounds
-            self.point = {key:(0.5*(value.eval_box().upper - value.eval_box().lower)) for (key,value) in self.variables.items()}
+            self.point = {key:(0.5*(value.eval_box().upper + value.eval_box().lower)) for (key,value) in self.variables.items()}
         else:
             self.point = point_grad
         
@@ -349,7 +378,7 @@ class ConvexConstraints(LinearConstraints):
         
         # n \cdot <x-x_0, y-y_0> = 0
         b = np.ones((A.shape[0],1))
-        n = np.linalg.pinv(A)@b
+        n = np.matmul(np.linalg.pinv(A),b)
         
         # Find in terms of f(x): a_N f(x) + \sum_i a_i x_i = b_i        
         bound_plane = None
@@ -439,11 +468,11 @@ def bounds(x,constraints,Npast=0):
 
     objective_max = cvxpy.Maximize(x)
     problem_maximum = cvxpy.Problem(objective_max,constraints[-Npast:])
-    value_max = problem_maximum.solve(solver=cvxpy.GUROBI)
+    value_max = problem_maximum.solve()
 
     objective_min = cvxpy.Minimize(x)
     problem_minimum = cvxpy.Problem(objective_min,constraints[-Npast:])
-    value_min = problem_minimum.solve(solver=cvxpy.GUROBI)
+    value_min = problem_minimum.solve() #solver=cvxpy.GUROBI
 
     return (value_min,value_max)
 
