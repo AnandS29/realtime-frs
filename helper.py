@@ -42,6 +42,7 @@ def verify_valid_boxes(boxes,ranges,forwardEuler,constants,n=10,compare=True, de
                 else:
                     valid.append(False)
                     ind_stop = ind
+                    print(el, bound[0], bound[1])
         ind += 1
                     
     
